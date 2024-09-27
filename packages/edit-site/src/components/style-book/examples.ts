@@ -12,21 +12,110 @@ import {
 /**
  * Internal dependencies
  */
-import type { BlockExample } from './types';
+import type {
+	BlockExample,
+	ColorItem,
+	ColorOrigin,
+	MultiOriginPalettes,
+} from './types';
+import { STYLE_BOOK_COLOR_GROUPS } from './constants';
+
+const defaultColorExampleStyles = {
+	dimensions: { minHeight: '100px' },
+	border: {
+		width: '1px',
+		style: 'solid',
+		color: '#ddd', // Match horizontal rule under sub title headings
+	},
+};
+
+function getColorExample( color: ColorItem, type: string ) {
+	if ( type === 'colors' ) {
+		return createBlock( 'core/group', {
+			backgroundColor: color.slug,
+			style: defaultColorExampleStyles,
+		} );
+	}
+
+	if ( type === 'gradients' ) {
+		return createBlock( 'core/group', {
+			gradient: color.slug,
+			style: defaultColorExampleStyles,
+		} );
+	}
+
+	if ( type === 'duotones' ) {
+		return createBlock( 'core/image', {
+			sizeSlug: 'medium',
+			url: 'https://s.w.org/images/core/5.3/MtBlanc1.jpg',
+			// translators: Caption accompanying an image of the Mont Blanc, which serves as an example for the Image block.
+			caption: __( 'Mont Blanc appears—still, snowy, and serene.' ),
+			style: { color: { duotone: `var:preset|duotone|${ color.slug }` } },
+		} );
+	}
+}
+
+/**
+ * Returns examples color examples for each origin
+ * e.g. Core (Default), Theme, and User.
+ *
+ * @param {MultiOriginPalettes} colors Global Styles color palettes per origin.
+ * @return {BlockExample[]} An array of color block examples.
+ */
+function getColorExamples( colors: MultiOriginPalettes ): BlockExample[] {
+	if ( ! colors ) {
+		return [];
+	}
+
+	const examples: BlockExample[] = [];
+
+	STYLE_BOOK_COLOR_GROUPS.forEach( ( group ) => {
+		const palette = colors[ group.type ].find(
+			( origin: ColorOrigin ) => origin.slug === group.origin
+		);
+
+		if ( palette?.[ group.type ] ) {
+			const example: BlockExample = {
+				name: group.slug,
+				title: group.title,
+				category: 'colors',
+				blocks: [
+					createBlock(
+						'core/group',
+						{
+							layout: {
+								type: 'grid',
+								columnCount: 2,
+								minimumColumnWidth: null,
+							},
+						},
+						palette[ group.type ].map( ( color: ColorItem ) =>
+							getColorExample( color, group.type )
+						)
+					),
+				],
+			};
+			examples.push( example );
+		}
+	} );
+
+	return examples;
+}
 
 /**
  * Returns a list of examples for registered block types.
  *
+ * @param {MultiOriginPalettes} colors Global styles colors grouped by origin e.g. Core, Theme, and User.
  * @return {BlockExample[]} An array of block examples.
  */
-export function getExamples(): BlockExample[] {
+export function getExamples( colors: MultiOriginPalettes ): BlockExample[] {
 	const nonHeadingBlockExamples = getBlockTypes()
 		.filter( ( blockType ) => {
 			const { name, example, supports } = blockType;
 			return (
 				name !== 'core/heading' &&
 				!! example &&
-				supports.inserter !== false
+				supports?.inserter !== false
 			);
 		} )
 		.map( ( blockType ) => ( {
@@ -58,6 +147,7 @@ export function getExamples(): BlockExample[] {
 			} );
 		} ),
 	};
+	const colorExamples = getColorExamples( colors );
 
-	return [ headingsExample, ...nonHeadingBlockExamples ];
+	return [ headingsExample, ...colorExamples, ...nonHeadingBlockExamples ];
 }
